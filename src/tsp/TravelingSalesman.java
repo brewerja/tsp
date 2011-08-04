@@ -19,16 +19,16 @@ public class TravelingSalesman {
 	private Random generator = new Random();
 	private int iterations_per_generation;
 
-	private final int POPULATION_SIZE = 1000;
+	private final int POPULATION_SIZE = 100000;
 	private final int EVOLVING_POPULATION_SIZE = 500;
 	private final double ELITISM_PCT = 0.1;
-	private final int NUMBER_OF_GENERATIONS = 100;
+	private final int NUMBER_OF_GENERATIONS = 200;
 	private final double MUTATION_RATE = 0.4;
 	private final double CROSSOVER_RATE = 0.9;
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
 		// Run the algorithm a number of times and take the best result.
-		int EVOLUTIONS = 20;
+		int EVOLUTIONS = 20*2;
 		ArrayList<Route> best = new ArrayList<Route>(EVOLUTIONS);
 		for (int j = 0; j < EVOLUTIONS; ++j) {
 			TravelingSalesman ts = new TravelingSalesman(args[0]);
@@ -46,7 +46,7 @@ public class TravelingSalesman {
 		System.out.println("Best result:" + best.get(0).getRouteLength());
 		best.get(0).printRoute();
 	}
-	
+
 	public TravelingSalesman(String path) throws NumberFormatException, IOException {
 		// Parse the file of city listings. (Name, x, y)
 		FileReader file = new FileReader(path);
@@ -126,11 +126,10 @@ public class TravelingSalesman {
 
 	public void evolve() {
 
-		ArrayList<Route> newChildren = new ArrayList<Route>(90);
-
 		// Create 2 new children each iteration until a full generation has been
 		// born.
 		iterations_per_generation = (int) Math.round((1 - ELITISM_PCT) * EVOLVING_POPULATION_SIZE / 2);
+		ArrayList<Route> newChildren = new ArrayList<Route>(iterations_per_generation * 2);
 		for (int j = 0; j < iterations_per_generation; ++j) {
 
 			// Randomly select 6 routes.
