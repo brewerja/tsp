@@ -13,7 +13,7 @@ public class TravelingSalesman {
 	}
 
 	private int numCities;
-	private City[] baseRoute;
+	private City[] baseCityArray;
 	private ArrayList<Route> routes;
 	private double[][] matrix;
 	private final int POPULATION_SIZE = 1000;
@@ -27,6 +27,7 @@ public class TravelingSalesman {
 	}
 
 	public void initialize(String path) throws IOException {
+		// Parse the file of city listings. (Name, x, y)
 		FileReader file = new FileReader(path);
 		BufferedReader bf = new BufferedReader(file);
 		String line;
@@ -45,22 +46,24 @@ public class TravelingSalesman {
 		System.out.println(numCities + " cities read.");
 
 		// Create the base route.
-		baseRoute = new City[numCities];
+		baseCityArray = new City[numCities];
 		for (int i = 0; i < numCities; ++i)
-			baseRoute[i] = list.get(i);
+			baseCityArray[i] = list.get(i);
 
 		// Create matrix to store distances between cities.
 		createMatrix();
 
-		// Create the initial population.
+		// Create the initial population of randomized routes.
 		routes = new ArrayList<Route>(POPULATION_SIZE);
 		for (int i = 0; i < POPULATION_SIZE; ++i) {
 			Collections.shuffle(list);
 			City[] route = new City[numCities];
 			for (int j = 0; j < numCities; ++j)
 				route[j] = list.get(j);
-			routes.add(new Route(route, getRouteLength(route)));
+			routes.add(new Route(route, calcRouteLength(route)));
 		}
+		Collections.sort(routes);
+		System.out.println(routes.size() + " random routes created.");
 	}
 
 	private void createMatrix() {
@@ -68,8 +71,8 @@ public class TravelingSalesman {
 		for (int i = 0; i < numCities - 1; ++i) {
 			matrix[i][i] = 0.0;
 			for (int j = i + 1; j < numCities; ++j) {
-				City city1 = baseRoute[i];
-				City city2 = baseRoute[j];
+				City city1 = baseCityArray[i];
+				City city2 = baseCityArray[j];
 				double t1 = (city1.getX() - city2.getX());
 				double t2 = (city1.getY() - city2.getY());
 				double distance = Math.sqrt(t1 * t1 + t2 * t2);
@@ -80,7 +83,7 @@ public class TravelingSalesman {
 		matrix[numCities - 1][numCities - 1] = 0.0;
 	}
 
-	private double getRouteLength(City[] route) {
+	private double calcRouteLength(City[] route) {
 		double distance = 0.0;
 		int c1 = route[0].getId();
 		for (int i = 1; i < numCities; ++i) {
