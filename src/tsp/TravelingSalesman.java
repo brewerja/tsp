@@ -12,45 +12,42 @@ import java.util.Set;
 
 public class TravelingSalesman {
 
-	public static void main(String[] args) {
-		int EVOLUTIONS = 40;
-		ArrayList<Double> best = new ArrayList<Double>(EVOLUTIONS);
-		for (int j = 0; j < EVOLUTIONS; ++j) {
-			TravelingSalesman ts = new TravelingSalesman(args[0]);
-			for (int i = 0; i < 100; ++i)
-				ts.evolve();
-			Collections.sort(ts.routes);
-			Route topRoute = ts.routes.get(0);
-//			topRoute.printRoute();
-//			System.out.println(topRoute);
-//			System.out.println("\n" + ts.calcRouteLength(topRoute.getRoute()));	
-			best.add(topRoute.getRouteLength());
-		}
-		
-		System.out.println("Evolutions Results:");
-		Collections.sort(best);
-		for (Double d: best)
-			System.out.println(d);
-		System.out.println("Best result:" + best.get(0));
-	}
-
 	private int numCities;
 	private City[] baseCityArray;
 	private ArrayList<Route> routes;
 	private double[][] matrix;
-	private final int POPULATION_SIZE = 20000;
-	private final int EVOLVING_POPULATION_SIZE = 200;
 	private Random generator = new Random();
+	private int iterations_per_generation;
 
-	public TravelingSalesman(String path) {
-		try {
-			this.initialize(path);
-		} catch (IOException e) {
-			e.printStackTrace();
+	private final int POPULATION_SIZE = 1000;
+	private final int EVOLVING_POPULATION_SIZE = 500;
+	private final double ELITISM_PCT = 0.1;
+	private final int NUMBER_OF_GENERATIONS = 100;
+	private final double MUTATION_RATE = 0.4;
+	private final double CROSSOVER_RATE = 0.9;
+
+	public static void main(String[] args) throws NumberFormatException, IOException {
+		// Run the algorithm a number of times and take the best result.
+		int EVOLUTIONS = 20;
+		ArrayList<Route> best = new ArrayList<Route>(EVOLUTIONS);
+		for (int j = 0; j < EVOLUTIONS; ++j) {
+			TravelingSalesman ts = new TravelingSalesman(args[0]);
+			ts.solve();
+			Collections.sort(ts.routes);
+			Route topRoute = ts.routes.get(0);
+			best.add(topRoute);
 		}
-	}
 
-	public void initialize(String path) throws IOException {
+		// List all results, along with the winner.
+		System.out.println("Evolutions Results:");
+		Collections.sort(best);
+		for (Route r : best)
+			System.out.println(r.getRouteLength());
+		System.out.println("Best result:" + best.get(0).getRouteLength());
+		best.get(0).printRoute();
+	}
+	
+	public TravelingSalesman(String path) throws NumberFormatException, IOException {
 		// Parse the file of city listings. (Name, x, y)
 		FileReader file = new FileReader(path);
 		BufferedReader bf = new BufferedReader(file);
@@ -67,14 +64,12 @@ public class TravelingSalesman {
 
 		// Store the number of cities to be traversed.
 		numCities = list.size();
-		//System.out.println(numCities + " cities read.");
 
-		// Create the base route.
+		// Create the "base" route and create the distance matrix based off of
+		// the ordering of that route.
 		baseCityArray = new City[numCities];
 		for (int i = 0; i < numCities; ++i)
 			baseCityArray[i] = list.get(i);
-
-		// Create matrix to store distances between cities.
 		createMatrix();
 
 		// Create the initial population of randomized routes.
@@ -87,15 +82,12 @@ public class TravelingSalesman {
 			init_routes.add(new Route(route, calcRouteLength(route)));
 		}
 		Collections.sort(init_routes);
-		//System.out.println(init_routes.size() + " random routes created.");
 
-		// Pick the 100 fittest routes.
+		// Pick the fittest routes.
 		routes = new ArrayList<Route>(EVOLVING_POPULATION_SIZE);
 		for (int i = 0; i < EVOLVING_POPULATION_SIZE; ++i)
 			routes.add(init_routes.get(i));
-		//System.out.println(routes.size() + " fittest routes stored. Top Route: " + routes.get(0).getRouteLength());
 		Collections.sort(routes);
-
 	}
 
 	private void createMatrix() {
@@ -127,12 +119,19 @@ public class TravelingSalesman {
 		return distance;
 	}
 
+	public void solve() {
+		for (int i = 0; i < NUMBER_OF_GENERATIONS; ++i)
+			evolve();
+	}
+
 	public void evolve() {
 
 		ArrayList<Route> newChildren = new ArrayList<Route>(90);
 
-		// Create 2 new children, repeat 45 times.
-		for (int j = 0; j < 90 / 2; ++j) {
+		// Create 2 new children each iteration until a full generation has been
+		// born.
+		iterations_per_generation = (int) Math.round((1 - ELITISM_PCT) * EVOLVING_POPULATION_SIZE / 2);
+		for (int j = 0; j < iterations_per_generation; ++j) {
 
 			// Randomly select 6 routes.
 			ArrayList<Route> possibleParents = new ArrayList<Route>(6);
@@ -146,26 +145,17 @@ public class TravelingSalesman {
 			Route dad = possibleParents.get(0);
 			Route mom = possibleParents.get(1);
 
-			// System.out.print("\nDad: ");
-			// for (City c : dad.getRoute())
-			// System.out.printf("%2d,", c.getId());
-			// System.out.print("\nMom: ");
-			// for (City c : mom.getRoute())
-			// System.out.printf("%2d,", c.getId());
-
 			Route child1, child2;
 
 			// Roll dice for crossover.
-			if (generator.nextDouble() > 0.9) {
+			if (generator.nextDouble() > CROSSOVER_RATE) {
 				child1 = new Route(dad);
 				child2 = new Route(mom);
 			} else {
-
 				City[] cityList1 = Arrays.copyOf(dad.getRoute(), dad.getRoute().length);
 				City[] cityList2 = Arrays.copyOf(mom.getRoute(), mom.getRoute().length);
 
 				int crossoverPoint = generator.nextInt(numCities - 1);
-				// System.out.print("\nCrossover Point: " + crossoverPoint);
 
 				Set<City> firstHalf = new HashSet<City>(crossoverPoint + 1);
 				for (int i = 0; i < crossoverPoint + 1; ++i)
@@ -196,29 +186,21 @@ public class TravelingSalesman {
 				// Create children.
 				child1 = new Route(cityList1, calcRouteLength(cityList1));
 				child2 = new Route(cityList2, calcRouteLength(cityList2));
-
-				// System.out.print("\nC1:  ");
-				// for (City c : child1.getRoute())
-				// System.out.printf("%2d,", c.getId());
-				// System.out.print("\nC2:  ");
-				// for (City c : child2.getRoute())
-				// System.out.printf("%2d,", c.getId());
 			}
 
 			// Roll dice for mutation.
-			if (generator.nextDouble() <= 0.1)
+			if (generator.nextDouble() <= MUTATION_RATE)
 				mutate(child1);
-			if (generator.nextDouble() <= 0.1)
+			if (generator.nextDouble() <= MUTATION_RATE)
 				mutate(child2);
 
 			newChildren.add(child1);
 			newChildren.add(child2);
-			// System.out.println("C1:" + child1.getRouteLength() + ", C2:" +
-			// child2.getRouteLength());
 		}
 
 		ArrayList<Route> temp = new ArrayList<Route>(EVOLVING_POPULATION_SIZE);
-		for (int i = 0; i < 10; ++i)
+
+		for (int i = 0; i < EVOLVING_POPULATION_SIZE - iterations_per_generation * 2; ++i)
 			temp.add(routes.get(i));
 
 		// Insert new generation.
@@ -228,23 +210,13 @@ public class TravelingSalesman {
 		routes = temp;
 		Collections.sort(routes);
 
-//		System.out.println(routes);
-//		for (Route r : routes)
-//			System.out.printf("%2f,", calcRouteLength(r.getRoute()));
-
-//		System.out.println("\nGeneration Created. Top Route: " + routes.get(0).getRouteLength());
-		double totalLength = 0;
-		for (Route r : routes)
-			totalLength += r.getRouteLength();
-//		System.out.println("Total Length:" + totalLength);
-
 	}
 
 	public void mutate(Route r) {
 		// Randomly swap two cities in the route.
+		City[] cityList = r.getRoute();
 		int c1 = generator.nextInt(numCities - 1);
 		int c2 = generator.nextInt(numCities - 1);
-		City[] cityList = r.getRoute();
 		City temp = cityList[c1];
 		cityList[c1] = cityList[c2];
 		cityList[c2] = temp;
