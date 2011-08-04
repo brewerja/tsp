@@ -1,5 +1,7 @@
 package tsp;
 
+import java.util.Arrays;
+
 public class Route implements Comparable<Route> {
 
 	private City[] route;
@@ -8,6 +10,11 @@ public class Route implements Comparable<Route> {
 	public Route(City[] route, double length) {
 		this.setRoute(route);
 		this.setRouteLength(length);
+	}
+
+	public Route(Route r) {
+		this.setRoute(Arrays.copyOf(r.getRoute(), r.getRoute().length));
+		this.setRouteLength(r.length);
 	}
 
 	public City[] getRoute() {
@@ -24,6 +31,12 @@ public class Route implements Comparable<Route> {
 
 	public void setRouteLength(double length) {
 		this.length = length;
+	}
+
+	public void printRoute() {
+		for (City c : this.getRoute())
+			System.out.print(c.getName() + ",");
+		System.out.println("\n");
 	}
 
 	@Override
