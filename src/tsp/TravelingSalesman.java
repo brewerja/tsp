@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -18,6 +20,7 @@ public class TravelingSalesman {
 	private double[][] matrix;
 	private Random generator = new Random();
 	private int iterations_per_generation;
+	private Map<Integer, City> directory;
 
 	private final int POPULATION_SIZE = 100000;
 	private final int EVOLVING_POPULATION_SIZE = 500;
@@ -28,7 +31,7 @@ public class TravelingSalesman {
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
 		// Run the algorithm a number of times and take the best result.
-		int EVOLUTIONS = 20*2;
+		int EVOLUTIONS = 3;
 		ArrayList<Route> best = new ArrayList<Route>(EVOLUTIONS);
 		for (int j = 0; j < EVOLUTIONS; ++j) {
 			TravelingSalesman ts = new TravelingSalesman(args[0]);
@@ -71,6 +74,11 @@ public class TravelingSalesman {
 		for (int i = 0; i < numCities; ++i)
 			baseCityArray[i] = list.get(i);
 		createMatrix();
+
+		// Initialize lookup table of city id's to their objects.
+		directory = new HashMap<Integer, City>(numCities);
+		for (City c : baseCityArray)
+			directory.put(c.getId(), c);
 
 		// Create the initial population of randomized routes.
 		ArrayList<Route> init_routes = new ArrayList<Route>(POPULATION_SIZE);
@@ -128,8 +136,8 @@ public class TravelingSalesman {
 
 		// Create 2 new children each iteration until a full generation has been
 		// born.
-		iterations_per_generation = (int) Math.round((1 - ELITISM_PCT) * EVOLVING_POPULATION_SIZE / 2);
-		ArrayList<Route> newChildren = new ArrayList<Route>(iterations_per_generation * 2);
+		iterations_per_generation = (int) Math.round((1 - ELITISM_PCT) * EVOLVING_POPULATION_SIZE);
+		ArrayList<Route> newChildren = new ArrayList<Route>(iterations_per_generation);
 		for (int j = 0; j < iterations_per_generation; ++j) {
 
 			// Randomly select 6 routes.
@@ -144,57 +152,23 @@ public class TravelingSalesman {
 			Route dad = possibleParents.get(0);
 			Route mom = possibleParents.get(1);
 
-			Route child1, child2;
+			Route child;
 
 			// Roll dice for crossover.
 			if (generator.nextDouble() > CROSSOVER_RATE) {
-				child1 = new Route(dad);
-				child2 = new Route(mom);
+				Route[] dadMom = { dad, mom };
+				child = new Route(dadMom[generator.nextInt(1)]);
 			} else {
-				City[] cityList1 = Arrays.copyOf(dad.getRoute(), dad.getRoute().length);
-				City[] cityList2 = Arrays.copyOf(mom.getRoute(), mom.getRoute().length);
-
-				int crossoverPoint = generator.nextInt(numCities - 1);
-
-				Set<City> firstHalf = new HashSet<City>(crossoverPoint + 1);
-				for (int i = 0; i < crossoverPoint + 1; ++i)
-					firstHalf.add(cityList1[i]);
-
-				int insertPt = crossoverPoint + 1;
-				for (int i = 0; i < numCities; ++i) {
-					City c = cityList2[i];
-					if (!firstHalf.contains(c)) {
-						cityList1[insertPt] = c;
-						insertPt++;
-					}
-				}
-
-				firstHalf = new HashSet<City>(crossoverPoint + 1);
-				for (int i = 0; i < crossoverPoint + 1; ++i)
-					firstHalf.add(cityList2[i]);
-
-				insertPt = crossoverPoint + 1;
-				for (int i = 0; i < numCities; ++i) {
-					City c = cityList1[i];
-					if (!firstHalf.contains(c)) {
-						cityList2[insertPt] = c;
-						insertPt++;
-					}
-				}
-
-				// Create children.
-				child1 = new Route(cityList1, calcRouteLength(cityList1));
-				child2 = new Route(cityList2, calcRouteLength(cityList2));
+				child = crossover(dad, mom);
 			}
 
 			// Roll dice for mutation.
-			if (generator.nextDouble() <= MUTATION_RATE)
-				mutate(child1);
-			if (generator.nextDouble() <= MUTATION_RATE)
-				mutate(child2);
+			 if (generator.nextDouble() <= MUTATION_RATE)
+				 mutate(child);
+			// if (generator.nextDouble() <= MUTATION_RATE)
+			// mutate(child2);
 
-			newChildren.add(child1);
-			newChildren.add(child2);
+			newChildren.add(child);
 		}
 
 		ArrayList<Route> temp = new ArrayList<Route>(EVOLVING_POPULATION_SIZE);
@@ -223,4 +197,130 @@ public class TravelingSalesman {
 		r.setRouteLength(calcRouteLength(cityList));
 	}
 
+	public Route crossover(Route dad, Route mom) {
+		City[] dadList = dad.getRoute();
+		City[] momList = mom.getRoute();
+
+		// dad.printRoute();
+		// mom.printRoute();
+
+		// Create the edge map.
+		Map<Integer, HashSet<Integer>> edgeMap = new HashMap<Integer, HashSet<Integer>>();
+		for (int i = 0; i < numCities; ++i) {
+			City c = dadList[i];
+			int cityId = c.getId();
+			// Get location of city i in mom.
+			int momLoc = 0;
+			for (int j = 0; j < numCities; ++j)
+				if (momList[j].equals(c)) {
+					momLoc = j;
+					break;
+				}
+			edgeMap.put(cityId, getEdges(dadList, momList, i, momLoc));
+		}
+
+		City[] child = new City[numCities];
+		ArrayList<Integer> unvisitedCityIds = new ArrayList<Integer>(numCities);
+		for (int i = 0; i < numCities; ++i)
+			unvisitedCityIds.add(i);
+
+		// Pick start city.
+		int dadInitialCityConnctions = edgeMap.get(dadList[0].getId()).size();
+		int momInitialCityConnctions = edgeMap.get(momList[0].getId()).size();
+		City currentCity;
+		if (dadInitialCityConnctions >= momInitialCityConnctions)
+			currentCity = dadList[0];
+		else
+			currentCity = momList[0];
+		child[0] = currentCity;
+		int i = 1;
+		unvisitedCityIds.remove(unvisitedCityIds.indexOf(currentCity.getId()));
+		edgeMap = removeFromEdgeMap(edgeMap, currentCity.getId());
+
+		while (!unvisitedCityIds.isEmpty()) {
+			if (!edgeMap.get(currentCity.getId()).isEmpty()) {
+				// Step 4.
+				currentCity = pickNextCity(edgeMap, currentCity.getId());
+			} else {
+				// Step 5.
+				int nextCityId;
+				if (unvisitedCityIds.size() == 1)
+					nextCityId = unvisitedCityIds.get(0);
+				else
+					nextCityId = unvisitedCityIds.get(generator.nextInt(unvisitedCityIds.size() - 1));
+				currentCity = directory.get(nextCityId);
+			}
+			child[i] = currentCity;
+			++i;
+			unvisitedCityIds.remove(unvisitedCityIds.indexOf(currentCity.getId()));
+			edgeMap = removeFromEdgeMap(edgeMap, currentCity.getId());
+		}
+
+		Route r = new Route(child, calcRouteLength(child));
+		if (!validRoute(r))
+			System.out.println("BAD ROUTE");
+		// System.out.println("NEW CHILD:");
+		// r.printRoute();
+		return r;
+	}
+
+	public boolean validRoute(Route r) {
+		City[] cityList = r.getRoute();
+		for (int i = 0; i < numCities; ++i) {
+			boolean found = false;
+			for (int j = 0; j < numCities; ++j) {
+				if (cityList[j].equals(baseCityArray[i])) {
+					found = true;
+				}
+			}
+			if (!found) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public HashSet<Integer> getEdges(City[] cityList1, City[] cityList2, int i, int j) {
+		int front = (i + 1) % numCities;
+		int back = (numCities + i - 1) % numCities;
+		HashSet<Integer> edges = new HashSet<Integer>();
+		edges.add(cityList1[back].getId());
+		edges.add(cityList1[front].getId());
+		front = (j + 1) % numCities;
+		back = (numCities + j - 1) % numCities;
+		edges.add(cityList2[back].getId());
+		edges.add(cityList2[front].getId());
+		return edges;
+	}
+
+	private City pickNextCity(Map<Integer, HashSet<Integer>> edgeMap, int id) {
+		HashSet<Integer> citiesToConsider = edgeMap.get(id);
+		int numMinConnections = Integer.MAX_VALUE;
+		ArrayList<Integer> possibles = new ArrayList<Integer>();
+		for (Map.Entry<Integer, HashSet<Integer>> e : edgeMap.entrySet()) {
+			if (citiesToConsider.contains(e.getKey())) {
+				if (e.getValue().size() < numMinConnections) {
+					numMinConnections = e.getValue().size();
+					possibles.clear();
+					possibles.add(e.getKey());
+				} else if (e.getValue().size() == numMinConnections) {
+					possibles.add(e.getKey());
+				}
+			}
+		}
+		City c;
+		if (possibles.size() == 1)
+			c = directory.get(possibles.get(0));
+		else
+			c = directory.get(possibles.get(generator.nextInt(possibles.size() - 1)));
+		return c;
+	}
+
+	private Map<Integer, HashSet<Integer>> removeFromEdgeMap(Map<Integer, HashSet<Integer>> edgeMap, int id) {
+		for (Map.Entry<Integer, HashSet<Integer>> e : edgeMap.entrySet()) {
+			HashSet<Integer> connections = e.getValue();
+			connections.remove(id);
+		}
+		return edgeMap;
+	}
 }
