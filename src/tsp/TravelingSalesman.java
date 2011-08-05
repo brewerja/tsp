@@ -391,4 +391,32 @@ public class TravelingSalesman {
 		}
 		return edgeMap;
 	}
+
+	private Route nearestNeighborTour(City c) {
+		ArrayList<City> cityList = new ArrayList<City>(numCities);
+		HashSet<Integer> citiesVisited = new HashSet<Integer>();
+
+		// loop
+		for (int j = 0; j < numCities; ++j) {
+			cityList.add(c);
+			int id = c.getId();
+			citiesVisited.add(id);
+			double minDist = Double.MAX_VALUE;
+			int index = 0;
+			for (int i = 0; i < numCities; ++i) {
+				double val = matrix[id][i];
+				if (!citiesVisited.contains(i)) {
+					if (val < minDist) {
+						minDist = val;
+						index = i;
+					}
+				}
+			}
+			c = directory.get(index);
+		}
+
+		City[] cityL = (City[]) cityList.toArray();
+		Route r = new Route(cityL, calcRouteLength(cityL));
+		return r;
+	}
 }
