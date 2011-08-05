@@ -4,13 +4,11 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 public class TravelingSalesman {
 
@@ -23,10 +21,10 @@ public class TravelingSalesman {
 	private Map<Integer, City> directory;
 
 	private final int POPULATION_SIZE = 100000;
-	private final int EVOLVING_POPULATION_SIZE = 500;
+	private final int EVOLVING_POPULATION_SIZE = 300;
 	private final double ELITISM_PCT = 0.1;
 	private final int NUMBER_OF_GENERATIONS = 200;
-	private final double MUTATION_RATE = 0.4;
+	private final double MUTATION_RATE = 0.1;
 	private final double CROSSOVER_RATE = 0.9;
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
@@ -163,8 +161,8 @@ public class TravelingSalesman {
 			}
 
 			// Roll dice for mutation.
-			 if (generator.nextDouble() <= MUTATION_RATE)
-				 mutate(child);
+			if (generator.nextDouble() <= MUTATION_RATE)
+				mutate(child);
 			// if (generator.nextDouble() <= MUTATION_RATE)
 			// mutate(child2);
 
