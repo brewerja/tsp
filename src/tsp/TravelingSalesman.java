@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,16 +21,17 @@ public class TravelingSalesman {
 	private int iterations_per_generation;
 	private Map<Integer, City> directory;
 
-	private final int POPULATION_SIZE = 100000;
-	private final int EVOLVING_POPULATION_SIZE = 300;
+	private final int POPULATION_SIZE = 1000000;
+	private final int EVOLVING_POPULATION_SIZE = 500;
 	private final double ELITISM_PCT = 0.1;
 	private final int NUMBER_OF_GENERATIONS = 200;
-	private final double MUTATION_RATE = 0.1;
+	private final double MUTATION_RATE = 0.3;
 	private final double CROSSOVER_RATE = 0.9;
+	private final int TOURNAMENT_SIZE = 10;
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
 		// Run the algorithm a number of times and take the best result.
-		int EVOLUTIONS = 3;
+		int EVOLUTIONS = 10;
 		ArrayList<Route> best = new ArrayList<Route>(EVOLUTIONS);
 		for (int j = 0; j < EVOLUTIONS; ++j) {
 			TravelingSalesman ts = new TravelingSalesman(args[0]);
@@ -37,6 +39,7 @@ public class TravelingSalesman {
 			Collections.sort(ts.routes);
 			Route topRoute = ts.routes.get(0);
 			best.add(topRoute);
+			System.out.println("Evolution " + (j + 1) + " complete: " + topRoute.getRouteLength());
 		}
 
 		// List all results, along with the winner.
@@ -138,9 +141,9 @@ public class TravelingSalesman {
 		ArrayList<Route> newChildren = new ArrayList<Route>(iterations_per_generation);
 		for (int j = 0; j < iterations_per_generation; ++j) {
 
-			// Randomly select 6 routes.
+			// Randomly select a set of routes.
 			ArrayList<Route> possibleParents = new ArrayList<Route>(6);
-			for (int i = 0; i < 6; ++i) {
+			for (int i = 0; i < TOURNAMENT_SIZE; ++i) {
 				int index = generator.nextInt(routes.size() - 1);
 				possibleParents.add(routes.get(index));
 			}
@@ -156,22 +159,19 @@ public class TravelingSalesman {
 			if (generator.nextDouble() > CROSSOVER_RATE) {
 				Route[] dadMom = { dad, mom };
 				child = new Route(dadMom[generator.nextInt(1)]);
-			} else {
+			} else
 				child = crossover(dad, mom);
-			}
 
 			// Roll dice for mutation.
 			if (generator.nextDouble() <= MUTATION_RATE)
 				mutate(child);
-			// if (generator.nextDouble() <= MUTATION_RATE)
-			// mutate(child2);
 
 			newChildren.add(child);
 		}
 
 		ArrayList<Route> temp = new ArrayList<Route>(EVOLVING_POPULATION_SIZE);
 
-		for (int i = 0; i < EVOLVING_POPULATION_SIZE - iterations_per_generation * 2; ++i)
+		for (int i = 0; i < EVOLVING_POPULATION_SIZE - iterations_per_generation; ++i)
 			temp.add(routes.get(i));
 
 		// Insert new generation.
@@ -195,12 +195,55 @@ public class TravelingSalesman {
 		r.setRouteLength(calcRouteLength(cityList));
 	}
 
+	public void mutateIVM(Route r) {
+		ArrayList<City> cityList = new ArrayList<City>(Arrays.asList(r.getRoute()));
+		// for (City c : cityList)
+		// System.out.print(c.getId() + ",");
+		// System.out.print("\n");
+		int c1 = generator.nextInt(numCities - 1);
+		int c2 = generator.nextInt(numCities - 1);
+		if (c2 < c1) {
+			int temp = c1;
+			c1 = c2;
+			c2 = temp;
+		}
+		// System.out.println(c1 + ", " + c2);
+		City[] strip = new City[c2 - c1 + 1];
+		for (int i = strip.length - 1; i > -1; --i) {
+			strip[i] = cityList.remove(c1);
+		}
+		int insertPt;
+		if (cityList.size() == 0 || cityList.size() == 1) {
+			insertPt = 0;
+		} else {
+			// System.out.println(cityList.size());
+			insertPt = generator.nextInt(cityList.size() - 1);
+		}
+		City[] cityList2 = new City[numCities];
+
+		int j = 0;
+		int k = insertPt;
+		for (int i = 0; i < numCities; ++i) {
+			if (i < insertPt)
+				cityList2[i] = cityList.get(i);
+			else if (j < strip.length) {
+				cityList2[i] = strip[j];
+				++j;
+			} else {
+				cityList2[i] = cityList.get(k);
+				++k;
+			}
+		}
+		// for (City c : cityList2)
+		// System.out.print(c.getId() + ",");
+		// System.out.print("\n");
+		r.setRoute(cityList2);
+		r.setRouteLength(calcRouteLength(cityList2));
+	}
+
 	public Route crossover(Route dad, Route mom) {
 		City[] dadList = dad.getRoute();
 		City[] momList = mom.getRoute();
-
-		// dad.printRoute();
-		// mom.printRoute();
 
 		// Create the edge map.
 		Map<Integer, HashSet<Integer>> edgeMap = new HashMap<Integer, HashSet<Integer>>();
@@ -255,10 +298,6 @@ public class TravelingSalesman {
 		}
 
 		Route r = new Route(child, calcRouteLength(child));
-		if (!validRoute(r))
-			System.out.println("BAD ROUTE");
-		// System.out.println("NEW CHILD:");
-		// r.printRoute();
 		return r;
 	}
 
@@ -279,24 +318,53 @@ public class TravelingSalesman {
 	}
 
 	public HashSet<Integer> getEdges(City[] cityList1, City[] cityList2, int i, int j) {
+
+		HashSet<Integer> edges = new HashSet<Integer>();
 		int front = (i + 1) % numCities;
 		int back = (numCities + i - 1) % numCities;
-		HashSet<Integer> edges = new HashSet<Integer>();
 		edges.add(cityList1[back].getId());
 		edges.add(cityList1[front].getId());
 		front = (j + 1) % numCities;
 		back = (numCities + j - 1) % numCities;
-		edges.add(cityList2[back].getId());
-		edges.add(cityList2[front].getId());
+		int id = cityList2[front].getId();
+		if (edges.contains(id)) {
+			edges.remove(id);
+			edges.add(-1 * id);
+		} else
+			edges.add(id);
+		id = cityList2[back].getId();
+		if (edges.contains(id)) {
+			edges.remove(id);
+			edges.add(-1 * id);
+		} else
+			edges.add(id);
 		return edges;
 	}
 
 	private City pickNextCity(Map<Integer, HashSet<Integer>> edgeMap, int id) {
 		HashSet<Integer> citiesToConsider = edgeMap.get(id);
+
+		City c;
+		if (citiesToConsider.size() == 3) {
+			ArrayList<Integer> edgeList = new ArrayList<Integer>(citiesToConsider);
+			// pick the negative one
+			for (int i = 0; i < 3; ++i)
+				if (edgeList.get(i) < 0) {
+					c = directory.get(-1 * edgeList.get(i));
+					return c;
+				}
+		} else if (citiesToConsider.size() == 1) {
+			ArrayList<Integer> edgeList = new ArrayList<Integer>(citiesToConsider);
+			c = directory.get(Math.abs(edgeList.get(0)));
+			return c;
+		}
+
 		int numMinConnections = Integer.MAX_VALUE;
 		ArrayList<Integer> possibles = new ArrayList<Integer>();
 		for (Map.Entry<Integer, HashSet<Integer>> e : edgeMap.entrySet()) {
-			if (citiesToConsider.contains(e.getKey())) {
+			// System.out.println("conns:" + e.getKey() + ": " + e.getValue() +
+			// ": consider" + citiesToConsider);
+			if (citiesToConsider.contains(e.getKey()) || citiesToConsider.contains(-1 * e.getKey())) {
 				if (e.getValue().size() < numMinConnections) {
 					numMinConnections = e.getValue().size();
 					possibles.clear();
@@ -306,11 +374,12 @@ public class TravelingSalesman {
 				}
 			}
 		}
-		City c;
-		if (possibles.size() == 1)
+
+		if (possibles.size() == 1) {
 			c = directory.get(possibles.get(0));
-		else
-			c = directory.get(possibles.get(generator.nextInt(possibles.size() - 1)));
+		} else {
+			c = directory.get(Math.abs(possibles.get(generator.nextInt(possibles.size() - 1))));
+		}
 		return c;
 	}
 
@@ -318,6 +387,7 @@ public class TravelingSalesman {
 		for (Map.Entry<Integer, HashSet<Integer>> e : edgeMap.entrySet()) {
 			HashSet<Integer> connections = e.getValue();
 			connections.remove(id);
+			connections.remove(-1 * id);
 		}
 		return edgeMap;
 	}
