@@ -138,7 +138,7 @@ public class TravelingSalesman {
 			evolve();
 	}
 
-	public void evolve() {
+	private void evolve() {
 
 		// Create a child each iteration until a full generation has been born.
 		generation_size = (int) Math.round((1 - ELITISM_PCT) * EVOLVING_POPULATION_SIZE);
@@ -189,7 +189,7 @@ public class TravelingSalesman {
 
 	}
 
-	public Route mutateRandomCitySwap(Route r) {
+	private Route mutateRandomCitySwap(Route r) {
 		// Randomly swap two cities in the route.
 		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
 		int c1 = generator.nextInt(numCities - 1);
@@ -201,7 +201,7 @@ public class TravelingSalesman {
 		return newRoute;
 	}
 
-	public Route mutateIVM(Route r) {
+	private Route mutateIVM(Route r) {
 		// Select a random subtour, reverse it and randomly add it back in.
 		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
 		ArrayList<City> cityArrayList = new ArrayList<City>(Arrays.asList(cityArray));
@@ -304,7 +304,7 @@ public class TravelingSalesman {
 		return new Route(cityArray, calcRouteLength(cityArray));
 	}
 
-	public Route crossover(Route dad, Route mom) {
+	private Route crossover(Route dad, Route mom) {
 		// Enhanced Edge Recombination (ER) Algorithm.
 		City[] dadArray = dad.getRoute();
 		City[] momArray = mom.getRoute();
@@ -380,7 +380,7 @@ public class TravelingSalesman {
 		return true;
 	}
 
-	public HashSet<Integer> getEdges(City[] dadArray, City[] momArray, int dadIndex, int momIndex) {
+	private HashSet<Integer> getEdges(City[] dadArray, City[] momArray, int dadIndex, int momIndex) {
 		HashSet<Integer> edges = new HashSet<Integer>();
 
 		// Get dad's edges.
