@@ -21,25 +21,24 @@ public class TravelingSalesman {
 	private int generation_size;
 	private Map<Integer, City> directory;
 
-	private final int POPULATION_SIZE = 5000000;
+	private final int POPULATION_SIZE = 1000000;
 	private final int EVOLVING_POPULATION_SIZE = 500;
 	private final double ELITISM_PCT = 0.1;
 	private final int NUMBER_OF_GENERATIONS = 400;
 	private final double MUTATION_RATE = 0.4;
 	private final double CROSSOVER_RATE = 0.9;
-	private final int TOURNAMENT_SIZE = 6;// 10;
+	private final int TOURNAMENT_SIZE = 10;
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
 		// Run the algorithm a number of times and take the best result.
-		int EVOLUTIONS = 30;
+		int EVOLUTIONS = 5;
 		ArrayList<Route> best = new ArrayList<Route>(EVOLUTIONS);
 		for (int j = 0; j < EVOLUTIONS; ++j) {
 			TravelingSalesman ts = new TravelingSalesman(args[0]);
 			ts.solve();
 			Collections.sort(ts.routes);
 			Route topRoute = ts.routes.get(0);
-			for (int i = 0; i < 5; ++i)
-				topRoute = ts.mutate2OptR(topRoute);
+			//topRoute = ts.mutate2OptR(topRoute);
 			best.add(topRoute);
 			System.out.println("Evolution " + (j + 1) + " complete: " + topRoute.getRouteLength());
 		}
@@ -174,7 +173,10 @@ public class TravelingSalesman {
 			// child = mutate2Opt(child);
 			// child = mutate2OptR(child);
 
-			newChildren.add(child);
+			Route worstParent = possibleParents.get(possibleParents.size() - 1);
+			routes.remove(routes.indexOf(worstParent));
+			routes.add(child);
+			// newChildren.add(child);
 		}
 
 		// Combine the elite and the new generation to form the new population.
@@ -260,27 +262,46 @@ public class TravelingSalesman {
 	}
 
 	private Route mutate2OptR(Route r) {
-		double lengthToBeat = r.getRouteLength();
-		City[] bestArray = Arrays.copyOf(r.getRoute(), numCities);
+		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
+		boolean bestFound = false;
 
-		for (int c1 = 0; c1 < numCities - 1; ++c1) {
-			for (int c2 = c1 + 1; c2 < numCities; ++c2) {
-				City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
-				while (c1 < c2) {
-					City temp = cityArray[c2];
-					cityArray[c2] = cityArray[c1];
-					cityArray[c1] = temp;
-					++c1;
-					--c2;
+		while (!bestFound) {
+			boolean restart = false;
+			bestFound = true;
+			// Get AB, CD, then check against AC, BD.
+			for (int c1 = 0; c1 < numCities; ++c1) {
+				int c2 = (c1 + 2) % numCities;
+				int idA = cityArray[c1].getId();
+				int idB = cityArray[(c1 + 1) % numCities].getId();
+				for (int i = 0; i < numCities - 3; ++i) {
+					int idC = cityArray[c2].getId();
+					int idD = cityArray[(c2 + 1) % numCities].getId();
+					double currentDist = matrix[idA][idB] + matrix[idC][idD];
+					double newDist = matrix[idA][idC] + matrix[idB][idD];
+					if (newDist < currentDist) {
+						bestFound = false;
+						int m1 = (c1 + 1) % numCities;
+						int m2 = c2;
+						while (m1 < m2) {
+							City temp = cityArray[m2];
+							cityArray[m2] = cityArray[m1];
+							cityArray[m1] = temp;
+							++m1;
+							m1 %= numCities;
+							m2 = (numCities + m2 - 1) % numCities;
+						}
+						System.out.println("IMPROVED:" + calcRouteLength(cityArray));
+						restart = true;
+						break;
+					}
+					++c2;
+					c2 %= numCities;
 				}
-				double newLength = calcRouteLength(cityArray);
-				if (newLength < lengthToBeat) {
-					bestArray = Arrays.copyOf(cityArray, numCities);
-					lengthToBeat = newLength;
-				}
+				if (restart)
+					break;
 			}
 		}
-		return new Route(bestArray, lengthToBeat);
+		return new Route(cityArray, calcRouteLength(cityArray));
 	}
 
 	public Route crossover(Route dad, Route mom) {
