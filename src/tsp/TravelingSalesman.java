@@ -25,7 +25,7 @@ public class TravelingSalesman {
 	private final int EVOLVING_POPULATION_SIZE = 500;
 	private final double ELITISM_PCT = 0.1;
 	private final int NUMBER_OF_GENERATIONS = 200;
-	private final double MUTATION_RATE = 0.3;
+	private final double MUTATION_RATE = 0.4;
 	private final double CROSSOVER_RATE = 0.9;
 	private final int TOURNAMENT_SIZE = 10;
 
@@ -90,7 +90,9 @@ public class TravelingSalesman {
 				route[j] = list.get(j);
 			init_routes.add(new Route(route, calcRouteLength(route)));
 		}
-		Collections.sort(init_routes);
+//		for (City c: baseCityArray)
+//			init_routes.add(nearestNeighborTour(c));
+//		Collections.sort(init_routes);
 
 		// Pick the fittest routes.
 		routes = new ArrayList<Route>(EVOLVING_POPULATION_SIZE);
@@ -108,7 +110,7 @@ public class TravelingSalesman {
 				City city2 = baseCityArray[j];
 				double t1 = (city1.getX() - city2.getX());
 				double t2 = (city1.getY() - city2.getY());
-				double distance = Math.sqrt(t1 * t1 + t2 * t2);
+				double distance = Math.round(Math.sqrt(t1 * t1 + t2 * t2));
 				matrix[i][j] = distance;
 				matrix[j][i] = distance;
 			}
@@ -117,7 +119,7 @@ public class TravelingSalesman {
 	}
 
 	private double calcRouteLength(City[] route) {
-		double distance = 0.0;
+		double distance = 0;
 		int c1 = route[0].getId();
 		for (int i = 1; i < numCities; ++i) {
 			int c2 = route[i].getId();
@@ -125,7 +127,7 @@ public class TravelingSalesman {
 			c1 = c2;
 		}
 		distance += matrix[c1][route[0].getId()];
-		return distance;
+		return (double) distance;
 	}
 
 	public void solve() {
@@ -415,8 +417,12 @@ public class TravelingSalesman {
 			c = directory.get(index);
 		}
 
-		City[] cityL = (City[]) cityList.toArray();
+		City[] cityL = new City[numCities];
+		cityList.toArray(cityL);
 		Route r = new Route(cityL, calcRouteLength(cityL));
+		if (!validRoute(r))
+			System.out.println("BAD TOUR");
+
 		return r;
 	}
 }
