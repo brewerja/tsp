@@ -38,7 +38,6 @@ public class TravelingSalesman {
 			ts.solve();
 			Collections.sort(ts.routes);
 			Route topRoute = ts.routes.get(0);
-			//topRoute = ts.mutate2OptR(topRoute);
 			best.add(topRoute);
 			System.out.println("Evolution " + (j + 1) + " complete: " + topRoute.getRouteLength());
 		}
@@ -173,10 +172,10 @@ public class TravelingSalesman {
 			// child = mutate2Opt(child);
 			// child = mutate2OptR(child);
 
-			Route worstParent = possibleParents.get(possibleParents.size() - 1);
-			routes.remove(routes.indexOf(worstParent));
-			routes.add(child);
-			// newChildren.add(child);
+//			Route worstParent = possibleParents.get(possibleParents.size() - 1);
+//			routes.remove(routes.indexOf(worstParent));
+//			routes.add(child);
+			 newChildren.add(child);
 		}
 
 		// Combine the elite and the new generation to form the new population.
@@ -242,74 +241,11 @@ public class TravelingSalesman {
 		return newRoute;
 	}
 
-	private Route mutate2Opt(Route r) {
-		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
-		int c1 = generator.nextInt(numCities - 1);
-		int c2 = generator.nextInt(numCities - 1);
-		if (c2 < c1) {
-			int temp = c1;
-			c1 = c2;
-			c2 = temp;
-		}
-		while (c1 < c2) {
-			City temp = cityArray[c2];
-			cityArray[c2] = cityArray[c1];
-			cityArray[c1] = temp;
-			++c1;
-			--c2;
-		}
-		return new Route(cityArray, calcRouteLength(cityArray));
-	}
-
-	private Route mutate2OptR(Route r) {
-		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
-		boolean bestFound = false;
-
-		while (!bestFound) {
-			boolean restart = false;
-			bestFound = true;
-			// Get AB, CD, then check against AC, BD.
-			for (int c1 = 0; c1 < numCities; ++c1) {
-				int c2 = (c1 + 2) % numCities;
-				int idA = cityArray[c1].getId();
-				int idB = cityArray[(c1 + 1) % numCities].getId();
-				for (int i = 0; i < numCities - 3; ++i) {
-					int idC = cityArray[c2].getId();
-					int idD = cityArray[(c2 + 1) % numCities].getId();
-					double currentDist = matrix[idA][idB] + matrix[idC][idD];
-					double newDist = matrix[idA][idC] + matrix[idB][idD];
-					if (newDist < currentDist) {
-						bestFound = false;
-						int m1 = (c1 + 1) % numCities;
-						int m2 = c2;
-						while (m1 < m2) {
-							City temp = cityArray[m2];
-							cityArray[m2] = cityArray[m1];
-							cityArray[m1] = temp;
-							++m1;
-							m1 %= numCities;
-							m2 = (numCities + m2 - 1) % numCities;
-						}
-						System.out.println("IMPROVED:" + calcRouteLength(cityArray));
-						restart = true;
-						break;
-					}
-					++c2;
-					c2 %= numCities;
-				}
-				if (restart)
-					break;
-			}
-		}
-		return new Route(cityArray, calcRouteLength(cityArray));
-	}
-
 	private Route crossover(Route dad, Route mom) {
 		// Enhanced Edge Recombination (ER) Algorithm.
 		City[] dadArray = dad.getRoute();
 		City[] momArray = mom.getRoute();
-		// dad.printRoute();
-		// mom.printRoute();
+
 		// Create the edge map.
 		// <CityId : List of neighboring CityId's in mom and dad>.
 		Map<Integer, HashSet<Integer>> edgeMap = new HashMap<Integer, HashSet<Integer>>();
@@ -361,23 +297,7 @@ public class TravelingSalesman {
 			edgeMap = removeFromEdgeMap(edgeMap, currentCity.getId());
 		}
 
-		Route rr = new Route(childCityArray, calcRouteLength(childCityArray));
-		// rr.printRoute();
-		return rr;
-
-	}
-
-	public boolean validRoute(Route r) {
-		City[] cityList = r.getRoute();
-		for (int i = 0; i < numCities; ++i) {
-			boolean found = false;
-			for (int j = 0; j < numCities; ++j)
-				if (cityList[j].equals(baseCityArray[i]))
-					found = true;
-			if (!found)
-				return false;
-		}
-		return true;
+		return new Route(childCityArray, calcRouteLength(childCityArray));
 	}
 
 	private HashSet<Integer> getEdges(City[] dadArray, City[] momArray, int dadIndex, int momIndex) {
@@ -484,8 +404,8 @@ public class TravelingSalesman {
 	private Route nearestNeighborTour(City c) {
 		ArrayList<City> cityArrayList = new ArrayList<City>(numCities);
 		HashSet<Integer> citiesVisited = new HashSet<Integer>();
-
-		// loop
+		
+		// Loop through all cities to build a tour.
 		for (int j = 0; j < numCities; ++j) {
 			cityArrayList.add(c);
 			int id = c.getId();
@@ -508,5 +428,18 @@ public class TravelingSalesman {
 		cityArrayList.toArray(cityList);
 		Route r = new Route(cityList, calcRouteLength(cityList));
 		return r;
+	}
+	
+	public boolean validRoute(Route r) {
+		City[] cityList = r.getRoute();
+		for (int i = 0; i < numCities; ++i) {
+			boolean found = false;
+			for (int j = 0; j < numCities; ++j)
+				if (cityList[j].equals(baseCityArray[i]))
+					found = true;
+			if (!found)
+				return false;
+		}
+		return true;
 	}
 }
