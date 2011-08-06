@@ -21,23 +21,25 @@ public class TravelingSalesman {
 	private int generation_size;
 	private Map<Integer, City> directory;
 
-	private final int POPULATION_SIZE = 1000000;
+	private final int POPULATION_SIZE = 5000000;
 	private final int EVOLVING_POPULATION_SIZE = 500;
 	private final double ELITISM_PCT = 0.1;
-	private final int NUMBER_OF_GENERATIONS = 200;
-	private final double MUTATION_RATE = 0.3;
+	private final int NUMBER_OF_GENERATIONS = 400;
+	private final double MUTATION_RATE = 0.4;
 	private final double CROSSOVER_RATE = 0.9;
-	private final int TOURNAMENT_SIZE = 10;
+	private final int TOURNAMENT_SIZE = 6;// 10;
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
 		// Run the algorithm a number of times and take the best result.
-		int EVOLUTIONS = 10;
+		int EVOLUTIONS = 30;
 		ArrayList<Route> best = new ArrayList<Route>(EVOLUTIONS);
 		for (int j = 0; j < EVOLUTIONS; ++j) {
 			TravelingSalesman ts = new TravelingSalesman(args[0]);
 			ts.solve();
 			Collections.sort(ts.routes);
 			Route topRoute = ts.routes.get(0);
+			for (int i = 0; i < 5; ++i)
+				topRoute = ts.mutate2OptR(topRoute);
 			best.add(topRoute);
 			System.out.println("Evolution " + (j + 1) + " complete: " + topRoute.getRouteLength());
 		}
@@ -84,7 +86,7 @@ public class TravelingSalesman {
 			directory.put(c.getId(), c);
 
 		// Create the initial population of randomized routes.
-		ArrayList<Route> init_routes = new ArrayList<Route>(POPULATION_SIZE);
+		ArrayList<Route> init_routes = new ArrayList<Route>(POPULATION_SIZE + numCities);
 		for (int i = 0; i < POPULATION_SIZE; ++i) {
 			Collections.shuffle(cities);
 			City[] route = new City[numCities];
@@ -93,8 +95,8 @@ public class TravelingSalesman {
 			init_routes.add(new Route(route, calcRouteLength(route)));
 		}
 
-		// for (City c: baseCityArray)
-		// init_routes.add(nearestNeighborTour(c));
+		for (City c : baseCityArray)
+			init_routes.add(nearestNeighborTour(c));
 
 		// Pick the fittest routes to form the evolving population.
 		Collections.sort(init_routes);
@@ -167,8 +169,10 @@ public class TravelingSalesman {
 
 			// Roll dice for mutation.
 			if (generator.nextDouble() <= MUTATION_RATE)
-				//mutateRandomCitySwap(child);
-				mutateIVM(child);
+				// child = mutateRandomCitySwap(child);
+				child = mutateIVM(child);
+			// child = mutate2Opt(child);
+			// child = mutate2OptR(child);
 
 			newChildren.add(child);
 		}
@@ -183,21 +187,22 @@ public class TravelingSalesman {
 
 	}
 
-	public void mutateRandomCitySwap(Route r) {
+	public Route mutateRandomCitySwap(Route r) {
 		// Randomly swap two cities in the route.
-		City[] cityList = r.getRoute();
+		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
 		int c1 = generator.nextInt(numCities - 1);
 		int c2 = generator.nextInt(numCities - 1);
-		City temp = cityList[c1];
-		cityList[c1] = cityList[c2];
-		cityList[c2] = temp;
-		r.setRoute(cityList);
-		r.setRouteLength(calcRouteLength(cityList));
+		City temp = cityArray[c1];
+		cityArray[c1] = cityArray[c2];
+		cityArray[c2] = temp;
+		Route newRoute = new Route(cityArray, calcRouteLength(cityArray));
+		return newRoute;
 	}
 
-	public void mutateIVM(Route r) {
+	public Route mutateIVM(Route r) {
 		// Select a random subtour, reverse it and randomly add it back in.
-		ArrayList<City> cityArrayList = new ArrayList<City>(Arrays.asList(r.getRoute()));
+		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
+		ArrayList<City> cityArrayList = new ArrayList<City>(Arrays.asList(cityArray));
 		int c1 = generator.nextInt(numCities - 1);
 		int c2 = generator.nextInt(numCities - 1);
 		if (c2 < c1) {
@@ -231,15 +236,59 @@ public class TravelingSalesman {
 				++k;
 			}
 		}
-		r.setRoute(newCityArray);
-		r.setRouteLength(calcRouteLength(newCityArray));
+		Route newRoute = new Route(newCityArray, calcRouteLength(newCityArray));
+		return newRoute;
+	}
+
+	private Route mutate2Opt(Route r) {
+		City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
+		int c1 = generator.nextInt(numCities - 1);
+		int c2 = generator.nextInt(numCities - 1);
+		if (c2 < c1) {
+			int temp = c1;
+			c1 = c2;
+			c2 = temp;
+		}
+		while (c1 < c2) {
+			City temp = cityArray[c2];
+			cityArray[c2] = cityArray[c1];
+			cityArray[c1] = temp;
+			++c1;
+			--c2;
+		}
+		return new Route(cityArray, calcRouteLength(cityArray));
+	}
+
+	private Route mutate2OptR(Route r) {
+		double lengthToBeat = r.getRouteLength();
+		City[] bestArray = Arrays.copyOf(r.getRoute(), numCities);
+
+		for (int c1 = 0; c1 < numCities - 1; ++c1) {
+			for (int c2 = c1 + 1; c2 < numCities; ++c2) {
+				City[] cityArray = Arrays.copyOf(r.getRoute(), numCities);
+				while (c1 < c2) {
+					City temp = cityArray[c2];
+					cityArray[c2] = cityArray[c1];
+					cityArray[c1] = temp;
+					++c1;
+					--c2;
+				}
+				double newLength = calcRouteLength(cityArray);
+				if (newLength < lengthToBeat) {
+					bestArray = Arrays.copyOf(cityArray, numCities);
+					lengthToBeat = newLength;
+				}
+			}
+		}
+		return new Route(bestArray, lengthToBeat);
 	}
 
 	public Route crossover(Route dad, Route mom) {
 		// Enhanced Edge Recombination (ER) Algorithm.
 		City[] dadArray = dad.getRoute();
 		City[] momArray = mom.getRoute();
-
+		// dad.printRoute();
+		// mom.printRoute();
 		// Create the edge map.
 		// <CityId : List of neighboring CityId's in mom and dad>.
 		Map<Integer, HashSet<Integer>> edgeMap = new HashMap<Integer, HashSet<Integer>>();
@@ -291,7 +340,10 @@ public class TravelingSalesman {
 			edgeMap = removeFromEdgeMap(edgeMap, currentCity.getId());
 		}
 
-		return new Route(childCityArray, calcRouteLength(childCityArray));
+		Route rr = new Route(childCityArray, calcRouteLength(childCityArray));
+		// rr.printRoute();
+		return rr;
+
 	}
 
 	public boolean validRoute(Route r) {
@@ -353,6 +405,24 @@ public class TravelingSalesman {
 		} else if (citiesToConsider.size() == 1) {
 			nextCity = directory.get(Math.abs(citiesToConsider.get(0)));
 			return nextCity;
+		}
+
+		// If one of the 2 is negative, pick it, otherwise either will do.
+		if (citiesToConsider.size() == 2) {
+			int negs = 0;
+			int index = 0;
+			if (citiesToConsider.get(0) < 0) {
+				++negs;
+				index = 0;
+			}
+			if (citiesToConsider.get(1) < 0) {
+				++negs;
+				index = 1;
+			}
+			if (negs == 1) {
+				nextCity = directory.get(Math.abs(citiesToConsider.get(index)));
+				return nextCity;
+			}
 		}
 
 		// If not picking a negative, or if all are negative,
